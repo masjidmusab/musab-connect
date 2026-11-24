@@ -1,0 +1,50 @@
+name: Enforce Staging or Hotfix to Main
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-source-branch:
+    name: verify-source-branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that PR originates from staging or hotfix/*
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            {
+              echo "### ❌ Invalid Target Branch (\`main\`)"
+              echo "Because \`main\` is the default branch, GitHub aimed this Pull Request at \`main\` automatically."
+              echo ""
+              echo "**How to fix this in 5 seconds:**"
+              echo "1. Scroll to the top of this Pull Request and click **Edit** next to the title."
+              echo "2. Change the **base** dropdown from \`main\` to **\`staging\`**."
+              echo "3. Confirm the change—this check will disappear and your PR will target \`staging\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "❌ Fork PRs cannot target 'main' directly. Please change the base branch to 'staging'."
+            exit 1
+          fi
+
+          if [[ "$HEAD_REF" != "staging" && "$HEAD_REF" != hotfix/* ]]; then
+            {
+              echo "### ❌ Invalid Source Branch (\`$HEAD_REF\` → \`main\`)"
+              echo "Direct Pull Requests into \`main\` are only allowed from **\`staging\`** or **\`hotfix/*\`**."
+              echo ""
+              echo "**How to fix this in 5 seconds:**"
+              echo "1. Scroll to the top of this Pull Request and click **Edit** next to the title."
+              echo "2. Change the **base** dropdown from \`main\` to **\`staging\`**."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "❌ Direct PRs to 'main' are only allowed from 'staging' or 'hotfix/*'. Found: '$HEAD_REF'."
+            exit 1
+          fi
+
+          echo "✅ Valid source branch ('$HEAD_REF') targeting 'main'."
